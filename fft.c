@@ -92,7 +92,7 @@ void execute(TDKDataGroup& dg, TDKBaseIO& io)
     A1[i] = value;
     i++;
   }
-  delete[] A1;
+  
   
   err = fft.create( ds, "FFT", le );
   if( err )
@@ -127,6 +127,8 @@ void execute(TDKDataGroup& dg, TDKBaseIO& io)
   FFTAnalysis(A1, fftA1, 32768, 32768);
   
 ////////Put FFT to Waveform//////////////////////////
+delete []A1;
+
 
   le.setPosition(le.firstPosition());
   i=0;
@@ -136,7 +138,7 @@ void execute(TDKDataGroup& dg, TDKBaseIO& io)
     fft.replaceNext( (fftA1[i]*gain)+bias );
     i++;
   }
-  
+
 ////////Signal threshold calculation/////////////////
 
   max=0;
@@ -147,11 +149,11 @@ void execute(TDKDataGroup& dg, TDKBaseIO& io)
     }
   }
   min_max = max/100*threshold;
-  
+    
 ////////Highlight all signals/////////////////////////
   for (i = 1; i < 16383; i++) {
   
-    if((fftA1[i]>min_max)&&(fftA1[i-1]<fftA1[i])&&(fftA1[i+1]<fftA1[i])){
+    if(k<100&&(fftA1[i]>min_max)&&(fftA1[i-1]<fftA1[i])&&(fftA1[i+1]<fftA1[i])){
       max_place[k]=i+1;
       k++;
     }
@@ -218,6 +220,7 @@ void execute(TDKDataGroup& dg, TDKBaseIO& io)
 delete []frequency;
 delete []max_place;
 delete []fftA1;
+
 }
 
 
