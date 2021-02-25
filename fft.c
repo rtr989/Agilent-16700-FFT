@@ -30,6 +30,7 @@ void execute(TDKDataGroup& dg, TDKBaseIO& io)
   int i=0;
   int k=0;
   int err;
+  int gain, bias;
   int threshold=10;
   int rate = 2000000000;
   float frequency[100];
@@ -59,6 +60,16 @@ void execute(TDKDataGroup& dg, TDKBaseIO& io)
         io.print( "Unable to convert Threshold parameter" );
         return;
     }  
+  err = sscanf( io.getArg( 3 ), "%i", &gain );
+    if( err != 1 ){
+        io.print( "Unable to convert Gain parameter" );
+        return;
+    }  
+  err = sscanf( io.getArg( 4 ), "%i", &bias );
+    if( err != 1 ){
+        io.print( "Unable to convert Bias parameter" );
+        return;
+    }  
   
   err = ds.attach(dg);
   if( err )
@@ -70,6 +81,7 @@ void execute(TDKDataGroup& dg, TDKBaseIO& io)
   err = le.attach(ds, channel );
   if( err )
   {
+    io.print( "Can not connect to Oscilloscope channel" );
     io.printError( err );
     return;
   }
@@ -97,7 +109,7 @@ void execute(TDKDataGroup& dg, TDKBaseIO& io)
     return;
   }
   
-  err = freqINT.createIntegralData( ds, "Frequency_", 32 );
+  err = freqINT.createIntegralData( ds, "Frequency_#", 8 );
   if( err )
   {
     io.printError( err );
@@ -121,7 +133,7 @@ void execute(TDKDataGroup& dg, TDKBaseIO& io)
   while( le.next( value ) )
   {
     //value = fftA1[i];
-    fft.replaceNext( fftA1[i] );
+    fft.replaceNext( (fftA1[i]*gain)+bias );
     i++;
   }
   
@@ -145,48 +157,48 @@ void execute(TDKDataGroup& dg, TDKBaseIO& io)
     }
   }
 ////////Frequency calculation/////////////////////////
-
+  k=1;
   for (i = 0; i < 100; i++) {
     if(max_place[i]>0){
     
       frequency[i] = max_place[i] * (rate / 32768.0);
-      io.printf("freq: %f", frequency[i] );
       
       if(frequency[i]<100) {
-      sprintf ( freqVal, "%.4f Hz", frequency[i] );
+      sprintf ( freqVal, "#%i %.4f Hz", k, frequency[i] );
       }
       
       if(frequency[i]>=100 && frequency[i]<1000) {
-      sprintf ( freqVal, "%.2f Hz", frequency[i] );
+      sprintf ( freqVal, "#%i %.2f Hz", k, frequency[i] );
       }
       
       if(frequency[i]>=1000 && frequency[i]<10000) {
-      sprintf ( freqVal, "%.4f kHz", frequency[i]/1000 );
+      sprintf ( freqVal, "#%i %.4f kHz", k, frequency[i]/1000 );
       }
       
       if(frequency[i]>=10000 && frequency[i]<100000) {
-      sprintf ( freqVal, "%.3f kHz", frequency[i]/1000 );
+      sprintf ( freqVal, "#%i %.3f kHz", k, frequency[i]/1000 );
       }
       
       if(frequency[i]>=100000 && frequency[i]<1000000) {;
-      sprintf ( freqVal, "%.2f kHz", frequency[i]/1000 );
+      sprintf ( freqVal, "#%i %.2f kHz", k, frequency[i]/1000 );
       }
       
       if(frequency[i]>=1000000 && frequency[i]<10000000) {;
-      sprintf ( freqVal, "%.4f MHz", frequency[i]/1000000 );
+      sprintf ( freqVal, "#%i %.4f MHz", k, frequency[i]/1000000 );
       }
       
       if(frequency[i]>=10000000 && frequency[i]<100000000) {;
-      sprintf ( freqVal, "%.3f MHz", frequency[i]/1000000 );
+      sprintf ( freqVal, "#%i %.3f MHz", k, frequency[i]/1000000 );
       }
       
       if(frequency[i]>=100000000) {;
-      sprintf ( freqVal, "%.2f MHz", frequency[i]/1000000 );
+      sprintf ( freqVal, "#%i %.2f MHz", k, frequency[i]/1000000 );
       }
       
-      //sprintf ( freqVal, "%.3f kHz", frequency[i]/1000 );
+      
       
       f=freqVal;
+      
       state = max_place[i] - 16384;
       freqTXT.setPosition( state );
       freqTXT.setColor( state, yellow );      
@@ -194,7 +206,10 @@ void execute(TDKDataGroup& dg, TDKBaseIO& io)
     
       freqINT.setPosition( state );  
       freqINT.setColor( state, yellow );
-      freqINT.replaceNext( (unsigned int)(frequency[i]) );
+      freqINT.replaceNext( (unsigned int)(k) );
+      
+      io.printf( f );
+      k++;
     }
   }
 
@@ -278,7 +293,8 @@ StringList getLabelNames()
   labels.put("Input channel: ");
   labels.put("Sample Rate Sa/s: ");
   labels.put("Signal threshold % of the highest: ");
-  
+  labels.put("Waveform signal gain: ");
+  labels.put("Waveform signal bias (0-100): ");
   return labels;
 }
 
@@ -290,6 +306,7 @@ StringList getDefaultArgs()
   defs.put("Channel A1");
   defs.put("2000000000");
   defs.put("10");
-  
+  defs.put("1");
+  defs.put("100");
   return defs;
 }
