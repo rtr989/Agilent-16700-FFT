@@ -58,10 +58,7 @@ void execute(TDKDataGroup &dg, TDKBaseIO &io) {
     return;
   }
 
-  //fftDS.createState(dg, "fftDataSet", 16384, 0, ds.getCorrelationState());
-  fftDS.createTimePeriodic(dg, "fftDataSet", 16384, 0, ds.getCorrelationTime(), nanoSec(4.0));
 
-err = fftDS.setStateBias();
 
   first_pos = ds.getPosition();
 
@@ -72,6 +69,11 @@ err = fftDS.setStateBias();
   }
 
   long long Tsample = (ds.lastPosition() - ds.firstPosition()) / (range - 1);
+
+
+  fftDS.createTimePeriodic(dg, "fftDataSet", 16384, 0, ds.getCorrelationTime(), Tsample);
+
+  err = fftDS.setStateBias();
 
   baseFreq = 1000000000000 / (size * 1.0 * Tsample);
 
@@ -249,10 +251,18 @@ if(p!=0) p=p+2;
 
   if (baseFreq < 1000) {
     io.printf("Measurement accuracy: %.3f Hz", baseFreq);
+    if(baseFreq*16384 < 1000)
+      io.printf("Minimum Frequency: %.3f Hz, Max Frequency: %.3f Hz", baseFreq, baseFreq*16384);
+    else
+      io.printf("Minimum Frequency: %.3f Hz, Max Frequency: %.3f kHz", baseFreq , baseFreq*16384 / 1000);
+    
+    
   } else {
     io.printf("Measurement accuracy: %.3f kHz", baseFreq / 1000);
+    io.printf("Minimum Frequency: %.3f kHz, Max Frequency: %.3f MHz", baseFreq / 1000, baseFreq*16384 / 1000000);
   }
-
+  io.printf("--------------------------------------------");
+  
   for (i = 0; i < 100; i++) {
     if (max_place[i] != 0) {
 
