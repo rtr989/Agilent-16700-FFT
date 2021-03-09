@@ -24,10 +24,12 @@ void execute(TDKDataGroup &dg, TDKBaseIO &io) {
   const double TwoPi = 6.283185307179586;
   double fftA1[size];
   float frequency[100];
-  double max, min_max, value;
+  float db[100];
+  double max, min_max, value, min, min_min;
   long long max_place[100];
   long long state, first_pos;
   char freqVal[100];
+  char dbVal[100];
 
   int c, a, i, k, err, j, n, m, Mmax, Istp, threshold;
   double Tmpr, Tmpi, Wtmp, Theta;
@@ -38,10 +40,13 @@ void execute(TDKDataGroup &dg, TDKBaseIO &io) {
   float baseFreq;
   double xVal[30];
   double yVal[30];
+  float refV;
+  
 
   for (i = 0; i < 100; i++) {
     frequency[i] = 0;
     max_place[i] = 0;
+    db[i] = 0;
   }
 
   String channel = io.getArg(0);
@@ -52,13 +57,18 @@ void execute(TDKDataGroup &dg, TDKBaseIO &io) {
     return;
   }
 
+  err = sscanf(io.getArg(2), "%f", &refV);
+  if (err != 1) {
+    io.print("Unable to convert Threshold parameter");
+    return;
+  }
+  if(refV==0) refV=1;
+  
   err = ds.attach(dg);
   if (err) {
     io.printError(err);
     return;
   }
-
-
 
   first_pos = ds.getPosition();
 
@@ -70,8 +80,8 @@ void execute(TDKDataGroup &dg, TDKBaseIO &io) {
 
   long long Tsample = (ds.lastPosition() - ds.firstPosition()) / (range - 1);
 
-
-  fftDS.createTimePeriodic(dg, "fftDataSet", 16384, 0, ds.getCorrelationTime(), Tsample);
+  fftDS.createTimePeriodic(dg, "fftDataSet", 16384, 0, ds.getCorrelationTime(),
+                           Tsample);
 
   err = fftDS.setStateBias();
 
@@ -165,21 +175,39 @@ void execute(TDKDataGroup &dg, TDKBaseIO &io) {
   delete[] Tmvl;
 
   ////////Signal threshold calculation/////////////////
-
+  int count = 0;
   max = 0;
+  min = 1000;
   for (i = 0; i < 16384; i++) {
 
     if (fftA1[i] > max) {
       max = fftA1[i];
     }
+    /*
+    min_min += fftA1[i];
+    count++;
+
+    if (count == 9) {
+      min_min = min_min / 10;
+      count = 0;
+      if (min_min < min){
+        min = min_min;
+      }
+      min_min=0;
+    }
+*/
+
   }
   min_max = max / 100 * threshold;
+  //io.printf("min: %f", min);
+
+
 
   ////////Put FFT on Waveform///////////////////////////
 
   err = fft.createAnalogData(fftDS, "FFT", max, max * 2.5);
 
-  for (i = 0; i < range/2; i++) {
+  for (i = 0; i < range / 2; i++) {
     fft.replaceNext(fftA1[i] * 2);
   }
 
@@ -207,7 +235,6 @@ void execute(TDKDataGroup &dg, TDKBaseIO &io) {
         c++;
       }
 
-
       float o = 15, p;
       double maxLagr = 0;
 
@@ -222,8 +249,11 @@ void execute(TDKDataGroup &dg, TDKBaseIO &io) {
           }
           o -= 0.1;
         }
-if(p!=0) p=p+2;
+        if (p != 0)
+          p = p + 2;
         frequency[k] = ((i + 1) * baseFreq) - (baseFreq / 10 * p);
+        
+         
       }
 
       if (fftA1[i + 1] > fftA1[i - 1]) {
@@ -237,32 +267,36 @@ if(p!=0) p=p+2;
           }
           o += 0.1;
         }
-if(p!=0) p=p+2;
+        if (p != 0)
+          p = p + 2;
         frequency[k] = ((i + 1) * baseFreq) + (baseFreq / 10 * p);
       }
-
+      db[k]= 20 * log10(fftA1[i]/refV);
       k++;
     }
   }
+
 
   ////////Frequency calculation/////////////////////////
 
   k = 1;
 
-  if (baseFreq < 1000) {
-    io.printf("Measurement accuracy: %.3f Hz", baseFreq);
-    if(baseFreq*16384 < 1000)
-      io.printf("Minimum Frequency: %.3f Hz, Max Frequency: %.3f Hz", baseFreq, baseFreq*16384);
+  if (baseFreq / 10 < 1000) {
+    io.printf("Measurement accuracy: %.3f Hz", baseFreq / 10);
+    if (baseFreq * 16384 < 1000)
+      io.printf("Minimum Frequency: %.3f Hz, Max Frequency: %.3f Hz", baseFreq,
+                baseFreq * 16384);
     else
-      io.printf("Minimum Frequency: %.3f Hz, Max Frequency: %.3f kHz", baseFreq , baseFreq*16384 / 1000);
-    
-    
+      io.printf("Minimum Frequency: %.3f Hz, Max Frequency: %.3f kHz", baseFreq,
+                baseFreq * 16384 / 1000);
+
   } else {
-    io.printf("Measurement accuracy: %.3f kHz", baseFreq / 1000);
-    io.printf("Minimum Frequency: %.3f kHz, Max Frequency: %.3f MHz", baseFreq / 1000, baseFreq*16384 / 1000000);
+    io.printf("Measurement accuracy: %.3f kHz", baseFreq / 10000);
+    io.printf("Minimum Frequency: %.3f kHz, Max Frequency: %.3f MHz",
+              baseFreq / 1000, baseFreq * 16384 / 1000000);
   }
   io.printf("--------------------------------------------");
-  
+
   for (i = 0; i < 100; i++) {
     if (max_place[i] != 0) {
 
@@ -301,8 +335,10 @@ if(p!=0) p=p+2;
         ;
         sprintf(freqVal, "#%i: %.4f MHz", k, frequency[i] / 1000000);
       }
-
-      f = freqVal;
+      sprintf(dbVal, "  %.2f dB", db[i]);
+      f="";
+      f += freqVal;
+      f += dbVal;
 
       state = max_place[i] - 1;
       freqTXT.setPosition(state);
@@ -329,14 +365,16 @@ StringList getLabelNames() {
   StringList labels;
   labels.put("Input channel: ");
   labels.put("Signal threshold % of the highest: ");
+  labels.put("dB Reference voltage Volt: ");
   return labels;
 }
 
 // Assign default values to runtime arguments
 StringList getDefaultArgs() {
   StringList defs;
-  defs.put("Channel B1");
-  defs.put("20");
+  defs.put("Channel C1");
+  defs.put("3");
+  defs.put("1");
   return defs;
 }
 
@@ -355,4 +393,3 @@ double lagrange(double *x_values, double *y_values, int size, double x) {
   }
   return lagrange_pol;
 }
-
