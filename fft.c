@@ -41,7 +41,6 @@ void execute(TDKDataGroup &dg, TDKBaseIO &io) {
   double xVal[30];
   double yVal[30];
   float refV;
-  
 
   for (i = 0; i < 100; i++) {
     frequency[i] = 0;
@@ -62,8 +61,7 @@ void execute(TDKDataGroup &dg, TDKBaseIO &io) {
     io.print("Unable to convert Threshold parameter");
     return;
   }
-  if(refV==0) refV=1;
-  
+
   err = ds.attach(dg);
   if (err) {
     io.printError(err);
@@ -196,12 +194,11 @@ void execute(TDKDataGroup &dg, TDKBaseIO &io) {
       min_min=0;
     }
 */
-
   }
   min_max = max / 100 * threshold;
-  //io.printf("min: %f", min);
-
-
+  // io.printf("min: %f", min);
+  if (refV == 0)
+    refV = max;
 
   ////////Put FFT on Waveform///////////////////////////
 
@@ -252,8 +249,6 @@ void execute(TDKDataGroup &dg, TDKBaseIO &io) {
         if (p != 0)
           p = p + 2;
         frequency[k] = ((i + 1) * baseFreq) - (baseFreq / 10 * p);
-        
-         
       }
 
       if (fftA1[i + 1] > fftA1[i - 1]) {
@@ -271,11 +266,10 @@ void execute(TDKDataGroup &dg, TDKBaseIO &io) {
           p = p + 2;
         frequency[k] = ((i + 1) * baseFreq) + (baseFreq / 10 * p);
       }
-      db[k]= 20 * log10(fftA1[i]/refV);
+      db[k] = 20 * log10(fftA1[i] / refV);
       k++;
     }
   }
-
 
   ////////Frequency calculation/////////////////////////
 
@@ -336,7 +330,7 @@ void execute(TDKDataGroup &dg, TDKBaseIO &io) {
         sprintf(freqVal, "#%i: %.4f MHz", k, frequency[i] / 1000000);
       }
       sprintf(dbVal, "  %.2f dB", db[i]);
-      f="";
+      f = "";
       f += freqVal;
       f += dbVal;
 
@@ -365,7 +359,7 @@ StringList getLabelNames() {
   StringList labels;
   labels.put("Input channel: ");
   labels.put("Signal threshold % of the highest: ");
-  labels.put("dB Reference voltage Volt: ");
+  labels.put("dB Ref Voltage(if 0 refV = highest signal): ");
   return labels;
 }
 
